@@ -22,6 +22,10 @@ highly depends on the rate of external events it receives. In order to
 constrain the resources that the Cilium agent consumes, it can be helpful to
 restrict the rate and allowed parallel executions of API calls.
 
+There are also limits related to the Kubernetes API calls that might result 
+in 429 errors in high churn scenarios. If you have adjusted the rate limits and 
+are still getting 429 errors, look at adjusting the ``k8s-client-qps`` parameters.
+
 Default Rate Limits
 ===================
 
@@ -43,7 +47,7 @@ Configuration
 The ``api-rate-limit`` option can be used to overwrite individual settings of the
 default configuration::
 
-   --api-rate-limit endpoint-create=rate-limit:2/s,rate-burst:4
+   --api-rate-limit endpoint-create=rate-limit:2/s,rate-burst:4 
 
 API call to Configuration mapping
 ---------------------------------
@@ -111,8 +115,7 @@ adjustment factor is calculated:
 
 .. code-block:: go
 
-    AdjustmentFactor := EstimatedProcessingDuration / MeanProcessingDuration
-    AdjustmentFactor = Min(Max(AdjustmentFactor, 1.0/MaxAdjustmentFactor), MaxAdjustmentFactor)
+    AdjustmentFactor = Min(Max((EstimatedProcessingDuration / MeanProcessingDuration), 1.0/MaxAdjustmentFactor), MaxAdjustmentFactor)
 
 This adjustment factor is then applied to ``rate-limit``, ``rate-burst`` and
 ``parallel-requests`` and will steer the mean processing duration to get closer
@@ -124,8 +127,45 @@ values should typically adjust slower than ``rate-limit``:
 
 .. code-block:: go
 
-    NewValue = OldValue * AdjustmentFactor
-    NewValue = OldValue + ((NewValue - OldValue) * DelayedAdjustmentFactor)
+    NewValue = OldValue + (((OldValue * AdjustmentFactor) - OldValue) * DelayedAdjustmentFactor)
+
+Rate Limiting Scenarios
+------------------------
+
+Below are a few examples with the following parameters of various throughputs 
+and the expected rate limit of the next automatic adjustment evaluation.
+
+* Limit: 4/s
+* Burst: 4
+* Max Parallel: 4
+* Min Parallel: 2
+* Max Wait Duration: 10s
+* Estimated Processing Duration: 200ms
+* Max Adjustment Factor: 100.0
+* Delayed Adjustment Factor: 0.5
+
+
+When operating at expected throughput (200ms for each request, oldValue 4/s)
+
+.. code-block:: go
+
+    AdjustmentFactor = Min(Max((200ms / 200ms), 1/100), 100) = 1
+    NewValue = 4 + (((4 * 1) - 4) * 0.5) = new limit of 4/s
+
+
+When operating at half of expected throughput (400ms for each request, oldValue 4/s)
+
+.. code-block:: go
+   
+    AdjustmentFactor = Min(Max((200ms / 400ms), 1/100), 100) = 0.5
+    NewValue = 4 + (((4 * 0.5) - 4) * 0.5) = new limit of 3/s
+
+When operating at double expected throughput (100ms for each request, oldValue 4/s)
+
+.. code-block:: go
+
+    AdjustmentFactor = Min(Max((200ms / 100ms), 1/100), 100) = 2
+    NewValue = 4 + (((4 * 2) - 4) * 0.5) = new limit of 6/s
 
 Metrics
 =======
