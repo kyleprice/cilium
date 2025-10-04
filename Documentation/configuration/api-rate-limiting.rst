@@ -145,7 +145,10 @@ and the expected rate limit of the next automatic adjustment evaluation.
 * Delayed Adjustment Factor: 0.5
 
 
-When operating at expected throughput (200ms for each request, oldValue 4/s)
+When operating at expected throughput
+
+* Average request time: 200ms
+* Current rate limit: 4/s
 
 .. code-block:: go
 
@@ -153,14 +156,20 @@ When operating at expected throughput (200ms for each request, oldValue 4/s)
     NewValue = 4 + (((4 * 1) - 4) * 0.5) = new limit of 4/s
 
 
-When operating at half of expected throughput (400ms for each request, oldValue 4/s)
+When operating at half of expected throughput
+
+* Average request time: 400ms
+* Current rate limit: 4/s
 
 .. code-block:: go
    
     AdjustmentFactor = Min(Max((200ms / 400ms), 1/100), 100) = 0.5
     NewValue = 4 + (((4 * 0.5) - 4) * 0.5) = new limit of 3/s
 
-When operating at double expected throughput (100ms for each request, oldValue 4/s)
+When operating at double expected throughput
+
+* Average request time: 100ms
+* Current rate limit: 4/s
 
 .. code-block:: go
 
