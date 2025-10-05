@@ -132,7 +132,7 @@ values should typically adjust slower than ``rate-limit``:
 Rate Limiting Scenarios
 ------------------------
 
-Below are a few examples with the following parameters of various throughputs 
+Below are a few examples with the following parameters of various scenarios 
 and the expected rate limit of the next automatic adjustment evaluation.
 
 * Limit: 4/s
